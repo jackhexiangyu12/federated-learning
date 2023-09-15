@@ -17,6 +17,12 @@ from models.Nets import MLP, CNNMnist, CNNCifar
 from models.Fed import FedAvg
 from models.test import test_img
 
+def getBinaryTensor(imgTensor, boundary = 200):
+    one = torch.ones_like(imgTensor)
+    zero = torch.zeros_like(imgTensor)
+    return torch.where(imgTensor > boundary, one, zero)
+
+
 
 if __name__ == '__main__':
     # parse args
@@ -62,6 +68,10 @@ if __name__ == '__main__':
 
     # copy weights
     w_glob = net_glob.state_dict()
+
+    #初始化
+    w_glob
+
 
     # training
     loss_train = []
