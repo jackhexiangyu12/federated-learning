@@ -63,6 +63,7 @@ if __name__ == '__main__':
         exit('Error: unrecognized model')
     print(net_glob)
     net_glob.train()
+    net_glob_client = copy.deepcopy(net_glob)
 
     # copy weights
     w_glob = net_glob.state_dict()
@@ -78,6 +79,7 @@ if __name__ == '__main__':
 
     #初始化，把 m_c[idx]都设置为m_g
     m_c = [copy.deepcopy(m_g) for i in range(args.num_users)]
+    w_c = [copy.deepcopy(w_glob) for i in range(args.num_users)]
 
     # training
     loss_train = []
@@ -87,13 +89,13 @@ if __name__ == '__main__':
     best_loss = None
     val_acc_list, net_list = [], []
 
-    if args.all_clients: 
-        print("Aggregation over all clients")
-        w_c = [w_glob for i in range(args.num_users)]
+    # if args.all_clients:
+    #     print("Aggregation over all clients")
+    #     w_c = [w_glob for i in range(args.num_users)]
     for iter in range(args.epochs):
         loss_locals = []
-        if not args.all_clients:
-            w_c = []
+        # if not args.all_clients:
+        #     w_c = []
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
 
@@ -105,13 +107,14 @@ if __name__ == '__main__':
             for k in w_c[idx].keys():
                 w_c[idx][k] = w_c[idx][k]* m_g[k]
                 w_c[idx][k] = w_c[idx][k]* m_c[idx][k]
+            #net_glob[idx]设置为w_c[idx]*m_c[idx]
 
-
-
-            w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device))
+            net_glob_client.load_state_dict(w_c[idx])
+            w, loss = local.train(net=copy.deepcopy(net_glob_client).to(args.device))
             if args.all_clients:
                 w_c[idx] = copy.deepcopy(w)
             else:
+                #
                 w_c.append(copy.deepcopy(w))
             loss_locals.append(copy.deepcopy(loss))
         # update global weights
