@@ -22,8 +22,6 @@ def getBinaryTensor(imgTensor, boundary = 200):
     zero = torch.zeros_like(imgTensor)
     return torch.where(imgTensor > boundary, one, zero)
 
-
-
 if __name__ == '__main__':
     # parse args
     args = args_parser()
@@ -69,9 +67,17 @@ if __name__ == '__main__':
     # copy weights
     w_glob = net_glob.state_dict()
 
-    #初始化
-    w_glob
+    sparsity_ratio=0.5
 
+    #初始化，把 w_glob中的参数的绝对值中的前sparsity_ratio%的参数置为1，其余的置为0
+    m_g = copy.deepcopy(w_glob)
+    for k in m_g.keys():
+        #mid是w_1[k]中绝对值第sparsity_ratio%大的数
+        mid = torch.topk(m_g[k].abs().view(-1), int(sparsity_ratio * m_g[k].numel()))[0][-1]
+        m_g[k] = getBinaryTensor(m_g[k].abs(), boundary=mid)
+
+    #初始化，把 m_c[idx]都设置为m_g
+    m_c = [copy.deepcopy(m_g) for i in range(args.num_users)]
 
     # training
     loss_train = []
@@ -83,25 +89,33 @@ if __name__ == '__main__':
 
     if args.all_clients: 
         print("Aggregation over all clients")
-        w_locals = [w_glob for i in range(args.num_users)]
+        w_c = [w_glob for i in range(args.num_users)]
     for iter in range(args.epochs):
         loss_locals = []
         if not args.all_clients:
-            w_locals = []
+            w_c = []
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
 
-
         for idx in idxs_users:
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
+
+            #对于每一个客户，W_c[idx]中 M_g * M_c[idx]为1的位置= W_g中 M_g * M_c[idx]为1的位置
+            w_c[idx]=copy.deepcopy(w_glob)
+            for k in w_c[idx].keys():
+                w_c[idx][k] = w_c[idx][k]* m_g[k]
+                w_c[idx][k] = w_c[idx][k]* m_c[idx][k]
+
+
+
             w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device))
             if args.all_clients:
-                w_locals[idx] = copy.deepcopy(w)
+                w_c[idx] = copy.deepcopy(w)
             else:
-                w_locals.append(copy.deepcopy(w))
+                w_c.append(copy.deepcopy(w))
             loss_locals.append(copy.deepcopy(loss))
         # update global weights
-        w_glob = FedAvg(w_locals)
+        w_glob = FedAvg(w_c)
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)
@@ -123,4 +137,3 @@ if __name__ == '__main__':
     acc_test, loss_test = test_img(net_glob, dataset_test, args)
     print("Training accuracy: {:.2f}".format(acc_train))
     print("Testing accuracy: {:.2f}".format(acc_test))
-
