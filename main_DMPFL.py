@@ -106,7 +106,7 @@ if __name__ == '__main__':
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
 
             #对于每一个客户，W_c[idx]中 M_g * M_c[idx]为1的位置= W_g中 M_g * M_c[idx]为1的位置
-            w_c[idx]=copy.deepcopy(w_g)
+
             #不能这样，会覆盖
             # for k in w_c[idx].keys():
             #     w_c[idx][k] = w_c[idx][k]* m_g[k]
