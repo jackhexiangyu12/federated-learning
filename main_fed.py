@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
 
             for k in w_c[idx].keys():
-                w_c[idx][k] = w_g* (m_g[k]*m_c[idx][k])+w_c[idx][k]*(1-m_c[idx][k]*m_g[k])
+                w_c[idx][k] = w_g[k]* (m_g[k]*m_c[idx][k])+w_c[idx][k]*(1-m_c[idx][k]*m_g[k])
 
             #速度太慢
             # for k in w_c[idx].keys():
