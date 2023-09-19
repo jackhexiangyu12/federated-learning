@@ -3,6 +3,7 @@
 # Python version: 3.6
 
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import copy
@@ -17,10 +18,12 @@ from models.Nets import MLP, CNNMnist, CNNCifar
 from models.Fed import FedAvg
 from models.test import test_img
 
-def getBinaryTensor(imgTensor, boundary = 200):
+
+def getBinaryTensor(imgTensor, boundary=200):
     one = torch.ones_like(imgTensor)
     zero = torch.zeros_like(imgTensor)
     return torch.where(imgTensor > boundary, one, zero)
+
 
 if __name__ == '__main__':
     # parse args
@@ -38,7 +41,8 @@ if __name__ == '__main__':
         else:
             dict_users = mnist_noniid(dataset_train, args.num_users)
     elif args.dataset == 'cifar':
-        trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        trans_cifar = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         dataset_train = datasets.CIFAR10('../data/cifar', train=True, download=True, transform=trans_cifar)
         dataset_test = datasets.CIFAR10('../data/cifar', train=False, download=True, transform=trans_cifar)
         if args.iid:
@@ -68,19 +72,19 @@ if __name__ == '__main__':
     # copy weights
     w_g = net_glob.state_dict()
 
-    sparsity_ratio=0.5
+    sparsity_ratio = 0.5
     readjust_masks = True
-    a_s=0.01
-    mask_readjust_interval=1
+    a_s = 0.1
+    mask_readjust_interval = 1
 
-    #初始化，把 w_glob中的参数的绝对值中的前sparsity_ratio%的参数置为1，其余的置为0
+    # 初始化，把 w_glob中的参数的绝对值中的前sparsity_ratio%的参数置为1，其余的置为0
     m_g = copy.deepcopy(w_g)
     for k in m_g.keys():
-        #mid是w_1[k]中绝对值第sparsity_ratio%大的数
+        # mid是w_1[k]中绝对值第sparsity_ratio%大的数
         mid = torch.topk(m_g[k].abs().view(-1), int(sparsity_ratio * m_g[k].numel()))[0][-1]
         m_g[k] = getBinaryTensor(m_g[k].abs(), boundary=mid)
 
-    #初始化，把 m_c[idx]都设置为m_g
+    # 初始化，把 m_c[idx]都设置为m_g
     m_c = [copy.deepcopy(m_g) for i in range(args.num_users)]
     w_c = [copy.deepcopy(w_g) for i in range(args.num_users)]
 
@@ -105,18 +109,17 @@ if __name__ == '__main__':
         for idx in idxs_users:
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
 
-            #对于每一个客户，W_c[idx]中 M_g * M_c[idx]为1的位置= W_g中 M_g * M_c[idx]为1的位置
+            # 对于每一个客户，W_c[idx]中 M_g * M_c[idx]为1的位置= W_g中 M_g * M_c[idx]为1的位置
 
-            #不能这样，会覆盖
+            # 不能这样，会覆盖
             # for k in w_c[idx].keys():
             #     w_c[idx][k] = w_c[idx][k]* m_g[k]
             #     w_c[idx][k] = w_c[idx][k]* m_c[idx][k]
 
-
             for k in w_c[idx].keys():
-                w_c[idx][k] = w_g[k]* (m_g[k]*m_c[idx][k])+w_c[idx][k]*(1-m_c[idx][k]*m_g[k])
+                w_c[idx][k] = w_g[k] * (m_g[k] * m_c[idx][k]) + w_c[idx][k] * (1 - m_c[idx][k] * m_g[k])
 
-            #速度太慢
+            # 速度太慢
             # for k in w_c[idx].keys():
             #     wc_shape = w_c[idx][k].shape
             #     wc_next = copy.deepcopy(w_c[idx][k])
@@ -132,22 +135,27 @@ if __name__ == '__main__':
             #             wc_next[i] = wg[i]
             #     w_c[idx][k] = wc_next.reshape(wc_shape)
 
-            #net_glob[idx]设置为w_c[idx]*m_c[idx]
-            net_client.load_state_dict(w_c[idx])
-            w_c[idx], loss = local.train(net=copy.deepcopy(net_client).to(args.device))
+            # net_glob[idx]设置为w_c[idx]*m_c[idx]
+            wm_g_temp = copy.deepcopy(w_c[idx])
+            for k in wm_c_temp.keys():
+                wm_c_temp[k] = wm_c_temp[k] * m_c[idx][k]
+            net_client.load_state_dict(wm_c_temp)
+            w_c_temp, loss = local.train(net=copy.deepcopy(net_client).to(args.device))
+            for k in w_c[idx].keys():
+                w_c[idx][k] = w_c_temp[k] * m_c[idx][k] + w_c[idx][k] * (1 - m_c[idx][k])
             if args.all_clients:
                 # w_c[idx] = copy.deepcopy(g_c)
-                #报错，不知道怎么写：
+                # 报错，不知道怎么写：
                 exit('Error:todo')
             # else:
-                #w_c[idx]=w_c[idx]+g_c*m_c[idx]
-                # for k in w_c[idx].keys():
-                #     w_c[idx][k] = w_c[idx][k] + g_c[k] * m_c[idx][k]
+            # w_c[idx]=w_c[idx]+g_c*m_c[idx]
+            # for k in w_c[idx].keys():
+            #     w_c[idx][k] = w_c[idx][k] + g_c[k] * m_c[idx][k]
             loss_locals.append(copy.deepcopy(loss))
 
-            #判断是否readjust_masks=true:
-            if readjust_masks==True:
-                if iter%mask_readjust_interval==0:
+            # 判断是否readjust_masks=true:
+            if readjust_masks == True:
+                if iter % mask_readjust_interval == 0:
                     # 对于a_s比例的m_c[idx]中在w_c[idx]中绝对值最小的参数，置为0
                     # for k in m_c[idx].keys():
                     #     # mid是w_1[k]中绝对值第a_s%小的数
@@ -173,14 +181,34 @@ if __name__ == '__main__':
 
                     for k in m_c[idx].keys():
                         # locate_min是w_1[k]中绝对值第a_s % 小的所有数的位置
-                        locate_min = torch.topk(w_c[idx][k].abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=True)[1]
+                        locate_min = \
+                        torch.topk(w_c[idx][k].abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=True)[1]
                         # locate_max是w_1[k]中绝对值第a_s % 大的所有数的位置
-                        locate_max = torch.topk(w_c[idx][k].abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=False)[1]
-                        #把m_c[idx]中locate_min中的位置置为0
-                        m_c[idx][k].view(-1)[locate_min]=0
+                        locate_max = \
+                        torch.topk(w_c[idx][k].abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=False)[1]
+                        # 把m_c[idx]中locate_min中的位置置为0
+                        m_c[idx][k].view(-1)[locate_min] = 0
                         # 把m_c[idx]中locate_max中的位置置为1
                         m_c[idx][k].view(-1)[locate_max] = 1
 
+            # algorithm 2
+            w_g = copy.deepcopy(w_g)
+            for k in w_g.keys():
+                w_g[k] = w_g[k] * m_g[k]
+            wm_g_temp = copy.deepcopy(w_g)
+            for k in wm_g_temp.keys():
+                wm_g_temp[k] = wm_g_temp[k] * m_g[k]
+            net_client.load_state_dict(wm_g_temp)
+            w_g, loss = local.train(net=copy.deepcopy(net_client).to(args.device))
+            for k in w_c[idx].keys():
+                w_g[k] = w_g[k] * m_c[idx][k] + w_c[idx][k] * (1 - m_c[idx][k])
+
+
+            #algorithm 3
+            w_c[idx] = copy.deepcopy(w_g)
+            for k in w_c[idx].keys():
+                w_c[idx][k] = w_c[idx][k] * m_g[k]
+                w_c[idx][k] = w_c[idx][k] * m_c[idx][k]
         # update global weights
         w_g = FedAvg(w_c)
 
@@ -204,12 +232,7 @@ if __name__ == '__main__':
     plt.plot(range(len(loss_train)), loss_train)
     plt.ylabel('train_loss')
     plt.savefig('./save/fed_{}_{}_{}_C{}_iid{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid))
-
     # testing 每个客户都测试一下，acc_train与acc_test都是所有客户的平均值
-
-
-
-
 
     net_glob.load_state_dict(w_g)
     net_glob.eval()
