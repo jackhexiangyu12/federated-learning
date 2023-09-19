@@ -63,7 +63,7 @@ if __name__ == '__main__':
         exit('Error: unrecognized model')
     print(net_glob)
     net_glob.train()
-    net_glob_client = copy.deepcopy(net_glob)
+    net_client = copy.deepcopy(net_glob)
 
     # copy weights
     w_g = net_glob.state_dict()
@@ -134,13 +134,16 @@ if __name__ == '__main__':
 
 
             #net_glob[idx]设置为w_c[idx]*m_c[idx]
-            net_glob_client.load_state_dict(w_c[idx])
-            w, loss = local.train(net=copy.deepcopy(net_glob_client).to(args.device))
+            net_client.load_state_dict(w_c[idx])
+            g_c, loss = local.train(net=copy.deepcopy(net_client).to(args.device))
             if args.all_clients:
-                w_c[idx] = copy.deepcopy(w)
+                # w_c[idx] = copy.deepcopy(g_c)
+                #报错，不知道怎么写：
+                exit('Error:todo')
             else:
-                #
-                w_c.append(copy.deepcopy(w))
+                #w_c[idx]=w_c[idx]+g_c*m_c[idx]
+                for k in w_c[idx].keys():
+                    w_c[idx][k] = w_c[idx][k] + g_c[k] * m_c[idx][k]
             loss_locals.append(copy.deepcopy(loss))
 
             #判断是否readjust_masks=true:
@@ -168,7 +171,7 @@ if __name__ == '__main__':
                     #         elif (wc_next[i] > mid2):
                     #             mc[i] = 1
                     #     m_c[idx][k] = mc.reshape(wc_shape)
-                    #
+
                     for k in m_c[idx].keys():
                         # locate_min是w_1[k]中绝对值第a_s % 小的所有数的位置
                         locate_min = torch.topk(w_c[idx][k].abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=True)[1]
@@ -183,7 +186,14 @@ if __name__ == '__main__':
         w_g = FedAvg(w_c)
 
         # copy weight to net_glob
-        net_glob.load_state_dict(w_g)
+        # net_glob.load_state_dict(w_g*m_g)
+        #
+        # g_c, loss = local.train(net=copy.deepcopy(net_client).to(args.device))
+        # if args.all_clients:
+        #     w_c[idx] = copy.deepcopy(g_c)
+        # else:
+        #     w_c.append(copy.deepcopy(g_c))
+        # loss_locals.append(copy.deepcopy(loss))
 
         # print loss
         loss_avg = sum(loss_locals) / len(loss_locals)
