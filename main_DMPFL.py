@@ -71,7 +71,7 @@ if __name__ == '__main__':
     sparsity_ratio=0.5
     readjust_masks = True
     a_s=0.01
-    mask_readjust_interval=10
+    mask_readjust_interval=1
 
     #初始化，把 w_glob中的参数的绝对值中的前sparsity_ratio%的参数置为1，其余的置为0
     m_g = copy.deepcopy(w_g)
@@ -132,18 +132,17 @@ if __name__ == '__main__':
             #             wc_next[i] = wg[i]
             #     w_c[idx][k] = wc_next.reshape(wc_shape)
 
-
             #net_glob[idx]设置为w_c[idx]*m_c[idx]
             net_client.load_state_dict(w_c[idx])
-            g_c, loss = local.train(net=copy.deepcopy(net_client).to(args.device))
+            w_c[idx], loss = local.train(net=copy.deepcopy(net_client).to(args.device))
             if args.all_clients:
                 # w_c[idx] = copy.deepcopy(g_c)
                 #报错，不知道怎么写：
                 exit('Error:todo')
-            else:
+            # else:
                 #w_c[idx]=w_c[idx]+g_c*m_c[idx]
-                for k in w_c[idx].keys():
-                    w_c[idx][k] = w_c[idx][k] + g_c[k] * m_c[idx][k]
+                # for k in w_c[idx].keys():
+                #     w_c[idx][k] = w_c[idx][k] + g_c[k] * m_c[idx][k]
             loss_locals.append(copy.deepcopy(loss))
 
             #判断是否readjust_masks=true:
@@ -206,7 +205,13 @@ if __name__ == '__main__':
     plt.ylabel('train_loss')
     plt.savefig('./save/fed_{}_{}_{}_C{}_iid{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid))
 
-    # testing
+    # testing 每个客户都测试一下，acc_train与acc_test都是所有客户的平均值
+
+
+
+
+
+    net_glob.load_state_dict(w_g)
     net_glob.eval()
     acc_train, loss_train = test_img(net_glob, dataset_train, args)
     acc_test, loss_test = test_img(net_glob, dataset_test, args)
