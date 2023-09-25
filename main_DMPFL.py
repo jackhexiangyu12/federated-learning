@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     sparsity_ratio = 0.5
     readjust_masks = True
-    a_s = 0.1
+    a_s = 0.01
     mask_readjust_interval = 1
 
     # 初始化，把 w_glob中的参数的绝对值中的前sparsity_ratio%的参数置为1，其余的置为0
@@ -111,15 +111,25 @@ if __name__ == '__main__':
                 local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
 
                 for k in w_c[idx].keys():
+                    w_c_old=w_c[idx][k]
                     w_c[idx][k] = w_g[k] * (m_g[k] * m_c[idx][k]) + w_c[idx][k] * (1 - m_c[idx][k] * m_g[k])
+                    # 比较w_c[idx]与w_c_old的差异
+                    w_diff = w_c[idx][k] - w_c_old
+                    #计算w_diff中有百分之多少不是0
+                    w_diff_ratio = torch.sum(torch.abs(w_diff)) / w_diff.numel()
 
                 wm_c_temp = copy.deepcopy(w_c[idx])
                 for k in wm_c_temp.keys():
                     wm_c_temp[k] = wm_c_temp[k] * m_c[idx][k]
                 net_client.load_state_dict(wm_c_temp)
+                w_c_temp_old=wm_c_temp
                 w_c_temp, loss = local.train(net=copy.deepcopy(net_client).to(args.device))
                 for k in w_c[idx].keys():
                     w_c[idx][k] = w_c_temp[k] * m_c[idx][k] + w_c[idx][k] * (1 - m_c[idx][k])
+                    #计算训练前后的差距
+                    w_c_temp_differ=w_c_temp[k]-w_c_temp_old[k]
+
+
                 if args.all_clients:
                     # w_c[idx] = copy.deepcopy(g_c)
                     # 报错，不知道怎么写：
@@ -133,22 +143,32 @@ if __name__ == '__main__':
                 #     for k in w_g.keys():
                 #         w_diff += torch.sum(torch.abs(w_g[k] - w_c[i][k]))
                 #     print("the difference between w_local ", i, " and w_glob: ", w_diff)
-                #
 
                 # 判断是否readjust_masks=true:
                 if readjust_masks == True:
                     if iter % mask_readjust_interval == 0:
                         for k in m_c[idx].keys():
+                            m_c_old=m_c[idx][k]
                             # locate_min是w_1[k]中绝对值第a_s % 小的所有数的位置
                             locate_min = \
-                                torch.topk(w_c[idx][k].abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=True)[1]
+                                torch.topk((w_c[idx][k]*(1-m_c[idx][k])).abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=False)[1]
                             # locate_max是w_1[k]中绝对值第a_s % 大的所有数的位置
                             locate_max = \
-                                torch.topk(w_c[idx][k].abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=False)[1]
+                                torch.topk((w_c[idx][k]*(1-m_c[idx][k])).abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=True)[1]
+                            #将m_c[idx][k]展开到一维然后还原
+                            m_c_shape=m_c[idx][k].shape
+                            m_c[idx][k] = m_c[idx][k].view(-1)
                             # 把m_c[idx]中locate_min中的位置置为0
-                            m_c[idx][k].view(-1)[locate_min] = 0
+                            m_c[idx][k]=torch.scatter(m_c[idx][k], 0, locate_min, 0)
+                            # m_c[idx][k][locate_min] = 0
                             # 把m_c[idx]中locate_max中的位置置为1
-                            m_c[idx][k].view(-1)[locate_max] = 1
+                            m_c[idx][k]=torch.scatter(m_c[idx][k], 0, locate_max, 1)
+                            # m_c[idx][k][locate_max] = 1
+
+                            m_c[idx][k] = m_c[idx][k].view(m_c_shape)
+                            m_c_diff=m_c[idx][k]-m_c_old
+                            # print()
+
             loss_avg = sum(loss_locals) / len(loss_locals)
             print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
             loss_train.append(loss_avg)
@@ -176,7 +196,7 @@ if __name__ == '__main__':
         print('algorithm 1')
         net_glob.load_state_dict(w_g)
         net_glob.eval()
-        acc_train, loss_train = test_img(net_glob, dataset_train, args)
+        acc_train, loss_train1 = test_img(net_glob, dataset_train, args)
         acc_test, loss_test = test_img(net_glob, dataset_test, args)
         print("Training accuracy: {:.2f}".format(acc_train))
         print("Testing accuracy: {:.2f}".format(acc_test))
@@ -200,7 +220,7 @@ if __name__ == '__main__':
         print('algorithm 2')
         net_glob.load_state_dict(w_g)
         net_glob.eval()
-        acc_train, loss_train = test_img(net_glob, dataset_train, args)
+        acc_train, loss_train1 = test_img(net_glob, dataset_train, args)
         acc_test, loss_test = test_img(net_glob, dataset_test, args)
         print("Training accuracy: {:.2f}".format(acc_train))
         print("Testing accuracy: {:.2f}".format(acc_test))
@@ -227,7 +247,7 @@ if __name__ == '__main__':
         print('algorithm 3')
         net_glob.load_state_dict(w_g)
         net_glob.eval()
-        acc_train, loss_train = test_img(net_glob, dataset_train, args)
+        acc_train, loss_train1 = test_img(net_glob, dataset_train, args)
         acc_test, loss_test = test_img(net_glob, dataset_test, args)
         print("Training accuracy: {:.2f}".format(acc_train))
         print("Testing accuracy: {:.2f}".format(acc_test))
@@ -239,9 +259,9 @@ if __name__ == '__main__':
     plt.savefig('./save/fed_{}_{}_{}_C{}_iid{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid))
     # testing 每个客户都测试一下，acc_train与acc_test都是所有客户的平均值
 
-    net_glob.load_state_dict(w_g)
-    net_glob.eval()
-    acc_train, loss_train = test_img(net_glob, dataset_train, args)
-    acc_test, loss_test = test_img(net_glob, dataset_test, args)
-    print("Training accuracy: {:.2f}".format(acc_train))
-    print("Testing accuracy: {:.2f}".format(acc_test))
+    # net_glob.load_state_dict(w_g)
+    # net_glob.eval()
+    # acc_train, loss_train = test_img(net_glob, dataset_train, args)
+    # acc_test, loss_test = test_img(net_glob, dataset_test, args)
+    # print("Training accuracy: {:.2f}".format(acc_train))
+    # print("Testing accuracy: {:.2f}".format(acc_test))

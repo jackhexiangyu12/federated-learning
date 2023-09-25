@@ -83,6 +83,8 @@ if __name__ == '__main__':
         for idx in idxs_users:
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
             w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device))
+            for k in w.keys():
+                w_differ=w_glob[k]-w[k]
             if args.all_clients:
                 w_locals[idx] = copy.deepcopy(w)
             else:
