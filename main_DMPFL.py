@@ -99,6 +99,8 @@ if __name__ == '__main__':
     # if args.all_clients:
     #     print("Aggregation over all clients")
     #     w_c = [w_glob for i in range(args.num_users)]
+    for iteration in range(2):
+
     for iter in range(args.epochs):
         loss_locals = []
         # if not args.all_clients:
@@ -136,7 +138,7 @@ if __name__ == '__main__':
             #     w_c[idx][k] = wc_next.reshape(wc_shape)
 
             # net_glob[idx]设置为w_c[idx]*m_c[idx]
-            wm_g_temp = copy.deepcopy(w_c[idx])
+            wm_c_temp = copy.deepcopy(w_c[idx])
             for k in wm_c_temp.keys():
                 wm_c_temp[k] = wm_c_temp[k] * m_c[idx][k]
             net_client.load_state_dict(wm_c_temp)
@@ -209,6 +211,16 @@ if __name__ == '__main__':
             for k in w_c[idx].keys():
                 w_c[idx][k] = w_c[idx][k] * m_g[k]
                 w_c[idx][k] = w_c[idx][k] * m_c[idx][k]
+            cita_c = copy.deepcopy(w_g)
+            for k in cita_c.keys():
+                cita_c[k] = cita_c[k] * m_g[k]
+                cita_c[k] = cita_c[k] * m_c[idx][k]
+                cita_c[k] = cita_c[k] + w_c[idx][k]*(m_c[idx][k]-m_g[k])
+
+            net_client.load_state_dict(cita_c)
+            w_c_temp, loss = local.train(net=copy.deepcopy(net_client).to(args.device))
+            for k in w_c[idx].keys():
+                w_c[idx][k] = w_c_temp[k] * (m_c[idx][k]-m_g[k]) + w_c[idx][k] * m_g[k]
         # update global weights
         w_g = FedAvg(w_c)
 
