@@ -24,14 +24,6 @@ def getBinaryTensor(imgTensor, boundary=200):
     return torch.where(imgTensor > boundary, one, zero)
 
 
-def print_test_result(net_glob, dataset_train, dataset_test, args):
-    net_glob.load_state_dict(w_g)
-    net_glob.eval()
-    acc_train, loss_train = test_img(net_glob, dataset_train, args)
-    acc_test, loss_test = test_img(net_glob, dataset_test, args)
-    print("Training accuracy: {:.2f}".format(acc_train))
-    print("Testing accuracy: {:.2f}".format(acc_test))
-
 if __name__ == '__main__':
     # parse args
     args = args_parser()
@@ -134,6 +126,15 @@ if __name__ == '__main__':
                     exit('Error:todo')
                 loss_locals.append(copy.deepcopy(loss))
 
+                #比较w_c与w_g的差异
+                # for i in range(len(w_c)):
+                #     # 比较w_locals与w_glob的差异
+                #     w_diff = 0
+                #     for k in w_g.keys():
+                #         w_diff += torch.sum(torch.abs(w_g[k] - w_c[i][k]))
+                #     print("the difference between w_local ", i, " and w_glob: ", w_diff)
+                #
+
                 # 判断是否readjust_masks=true:
                 if readjust_masks == True:
                     if iter % mask_readjust_interval == 0:
@@ -152,7 +153,9 @@ if __name__ == '__main__':
             print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
             loss_train.append(loss_avg)
             w_old_glob=w_g
-            w_g = FedAvg(w_c)
+            #w_c_select是w_c中下标为idxs_users的元素
+            w_c_select=[w_c[i] for i in idxs_users]
+            w_g = FedAvg(w_c_select)
             # 比较w_old_glob和w_glob的差异
             w_diff = 0
             for k in w_g.keys():
@@ -163,17 +166,20 @@ if __name__ == '__main__':
             for k in w_g.keys():
                 w_sim += torch.sum(torch.abs(w_g[k] * w_old_glob[k]))
             print("w_sim: ", w_sim)
-            for idx in range(args.num_users):
-                # 计算m_c中为1的元素占所有元素的占比
-                m_c_ratio = 0
-                for k in m_c[idx].keys():
-                    m_c_ratio += torch.sum(m_c[idx][k])
-                    m_c_ratio = m_c_ratio / m_c[idx][k].numel()
-                    print(idx,',',k,":m_c_ratio: ", m_c_ratio)
-
-
+            # for idx in range(args.num_users):
+            #     # 计算m_c中为1的元素占所有元素的占比
+            #     m_c_ratio = 0
+            #     for k in m_c[idx].keys():
+            #         m_c_ratio += torch.sum(m_c[idx][k])
+            #         m_c_ratio = m_c_ratio / m_c[idx][k].numel()
+            #         print(idx,',',k,":m_c_ratio: ", m_c_ratio)
         print('algorithm 1')
-        print_test_result(net_glob, dataset_train, dataset_test, args)
+        net_glob.load_state_dict(w_g)
+        net_glob.eval()
+        acc_train, loss_train = test_img(net_glob, dataset_train, args)
+        acc_test, loss_test = test_img(net_glob, dataset_test, args)
+        print("Training accuracy: {:.2f}".format(acc_train))
+        print("Testing accuracy: {:.2f}".format(acc_test))
 
         for iter in range(args.epochs):
             # algorithm 2
@@ -192,7 +198,12 @@ if __name__ == '__main__':
             loss_train.append(loss_avg)
             w_g = FedAvg(w_c)
         print('algorithm 2')
-        print_test_result(net_glob, dataset_train, dataset_test, args)
+        net_glob.load_state_dict(w_g)
+        net_glob.eval()
+        acc_train, loss_train = test_img(net_glob, dataset_train, args)
+        acc_test, loss_test = test_img(net_glob, dataset_test, args)
+        print("Training accuracy: {:.2f}".format(acc_train))
+        print("Testing accuracy: {:.2f}".format(acc_test))
 
         for iter in range(args.epochs):
             # algorithm 3
@@ -213,8 +224,13 @@ if __name__ == '__main__':
             loss_avg = sum(loss_locals) / len(loss_locals)
             print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
             loss_train.append(loss_avg)
-        print('algorithm 2')
-        print_test_result(net_glob, dataset_train, dataset_test, args)
+        print('algorithm 3')
+        net_glob.load_state_dict(w_g)
+        net_glob.eval()
+        acc_train, loss_train = test_img(net_glob, dataset_train, args)
+        acc_test, loss_test = test_img(net_glob, dataset_test, args)
+        print("Training accuracy: {:.2f}".format(acc_train))
+        print("Testing accuracy: {:.2f}".format(acc_test))
 
     # plot loss curve
     plt.figure()

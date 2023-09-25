@@ -88,11 +88,12 @@ if __name__ == '__main__':
             else:
                 w_locals.append(copy.deepcopy(w))
             loss_locals.append(copy.deepcopy(loss))
+        for i in range(len(w_locals)):
             # 比较w_locals与w_glob的差异
             w_diff = 0
             for k in w_glob.keys():
-                w_diff += torch.sum(torch.abs(w_glob[k] - w_locals[idx][k]))
-            print("the difference between w_local ",idx," and w_glob: ", w_diff)
+                w_diff += torch.sum(torch.abs(w_glob[k] - w_locals[i][k]))
+            print("the difference between w_local ", i, " and w_glob: ", w_diff)
 
         # update global weights
         w_old_glob=w_glob
