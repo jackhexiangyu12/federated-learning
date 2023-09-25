@@ -119,33 +119,9 @@ if __name__ == '__main__':
             for idx in idxs_users:
                 local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
 
-                # 对于每一个客户，W_c[idx]中 M_g * M_c[idx]为1的位置= W_g中 M_g * M_c[idx]为1的位置
-
-                # 不能这样，会覆盖
-                # for k in w_c[idx].keys():
-                #     w_c[idx][k] = w_c[idx][k]* m_g[k]
-                #     w_c[idx][k] = w_c[idx][k]* m_c[idx][k]
-
                 for k in w_c[idx].keys():
                     w_c[idx][k] = w_g[k] * (m_g[k] * m_c[idx][k]) + w_c[idx][k] * (1 - m_c[idx][k] * m_g[k])
 
-                # 速度太慢
-                # for k in w_c[idx].keys():
-                #     wc_shape = w_c[idx][k].shape
-                #     wc_next = copy.deepcopy(w_c[idx][k])
-                #     wc_next = wc_next.reshape(-1)
-                #     mg = m_g[k].reshape(-1)
-                #     mc = m_c[idx][k].reshape(-1)
-                #     wg = w_g[k].reshape(-1)
-                #
-                #     # 遍历一维张量
-                #     dim0 = wc_next.shape
-                #     for i in range(dim0[0]):
-                #         if (mg[i] * mc[i] == 1):
-                #             wc_next[i] = wg[i]
-                #     w_c[idx][k] = wc_next.reshape(wc_shape)
-
-                # net_glob[idx]设置为w_c[idx]*m_c[idx]
                 wm_c_temp = copy.deepcopy(w_c[idx])
                 for k in wm_c_temp.keys():
                     wm_c_temp[k] = wm_c_temp[k] * m_c[idx][k]
@@ -162,29 +138,6 @@ if __name__ == '__main__':
                 # 判断是否readjust_masks=true:
                 if readjust_masks == True:
                     if iter % mask_readjust_interval == 0:
-                        # 对于a_s比例的m_c[idx]中在w_c[idx]中绝对值最小的参数，置为0
-                        # for k in m_c[idx].keys():
-                        #     # mid是w_1[k]中绝对值第a_s%小的数
-                        #     mid = torch.topk(w_c[idx][k].abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=True)[0][
-                        #         -1]
-                        #     # mid2是w_1[k]中绝对值第a_s%大的数
-                        #     mid2 = torch.topk(w_c[idx][k].abs().view(-1), int(a_s * w_c[idx][k].numel()), largest=False)[0][
-                        #         -1]
-                        #
-                        #     wc_shape = w_c[idx][k].shape
-                        #     wc_next = copy.deepcopy(w_c[idx][k])
-                        #     wc_next = wc_next.reshape(-1)
-                        #     mc = m_c[idx][k].reshape(-1)
-                        #
-                        #     # 遍历一维张量
-                        #     dim0 = wc_next.shape
-                        #     for i in range(dim0[0]):
-                        #         if (wc_next[i] < mid):
-                        #             mc[i] = 0
-                        #         elif (wc_next[i] > mid2):
-                        #             mc[i] = 1
-                        #     m_c[idx][k] = mc.reshape(wc_shape)
-
                         for k in m_c[idx].keys():
                             # locate_min是w_1[k]中绝对值第a_s % 小的所有数的位置
                             locate_min = \
