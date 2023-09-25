@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Python version: 3.6
-
 import matplotlib
 
 matplotlib.use('Agg')
@@ -152,7 +151,27 @@ if __name__ == '__main__':
             loss_avg = sum(loss_locals) / len(loss_locals)
             print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
             loss_train.append(loss_avg)
-        w_g = FedAvg(w_c)
+            w_old_glob=w_g
+            w_g = FedAvg(w_c)
+            # 比较w_old_glob和w_glob的差异
+            w_diff = 0
+            for k in w_g.keys():
+                w_diff += torch.sum(torch.abs(w_g[k] - w_old_glob[k]))
+            print("w_diff: ", w_diff)
+            # 计算w_old_glob和w_glob的相似度
+            w_sim = 0
+            for k in w_g.keys():
+                w_sim += torch.sum(torch.abs(w_g[k] * w_old_glob[k]))
+            print("w_sim: ", w_sim)
+            for idx in range(args.num_users):
+                # 计算m_c中为1的元素占所有元素的占比
+                m_c_ratio = 0
+                for k in m_c[idx].keys():
+                    m_c_ratio += torch.sum(m_c[idx][k])
+                    m_c_ratio = m_c_ratio / m_c[idx][k].numel()
+                    print(idx,',',k,":m_c_ratio: ", m_c_ratio)
+
+
         print('algorithm 1')
         print_test_result(net_glob, dataset_train, dataset_test, args)
 
@@ -171,8 +190,7 @@ if __name__ == '__main__':
             loss_avg = sum(loss_locals) / len(loss_locals)
             print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
             loss_train.append(loss_avg)
-
-        w_g = FedAvg(w_c)
+            w_g = FedAvg(w_c)
         print('algorithm 2')
         print_test_result(net_glob, dataset_train, dataset_test, args)
 

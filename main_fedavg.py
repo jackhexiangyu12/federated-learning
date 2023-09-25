@@ -88,8 +88,25 @@ if __name__ == '__main__':
             else:
                 w_locals.append(copy.deepcopy(w))
             loss_locals.append(copy.deepcopy(loss))
+            # 比较w_locals与w_glob的差异
+            w_diff = 0
+            for k in w_glob.keys():
+                w_diff += torch.sum(torch.abs(w_glob[k] - w_locals[idx][k]))
+            print("the difference between w_local ",idx," and w_glob: ", w_diff)
+
         # update global weights
+        w_old_glob=w_glob
         w_glob = FedAvg(w_locals)
+        #比较w_old_glob和w_glob的差异
+        w_diff=0
+        for k in w_glob.keys():
+            w_diff+=torch.sum(torch.abs(w_glob[k]-w_old_glob[k]))
+        print("w_diff: ",w_diff)
+        #计算w_old_glob和w_glob的相似度
+        w_sim=0
+        for k in w_glob.keys():
+            w_sim+=torch.sum(torch.abs(w_glob[k]*w_old_glob[k]))
+        print("w_sim: ",w_sim)
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)
