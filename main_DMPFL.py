@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Python version: 3.6
+import time
+
 import matplotlib
 
 matplotlib.use('Agg')
@@ -256,7 +258,7 @@ if __name__ == '__main__':
     plt.figure()
     plt.plot(range(len(loss_train)), loss_train)
     plt.ylabel('train_loss')
-    plt.savefig('./save/fed_{}_{}_{}_C{}_iid{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid))
+    plt.savefig('./save/DMPFL_{}_{}_{}_C{}_iid{}_time_{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid,time.time()))
     # testing 每个客户都测试一下，acc_train与acc_test都是所有客户的平均值
 
     # net_glob.load_state_dict(w_g)
