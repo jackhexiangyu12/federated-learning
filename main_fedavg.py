@@ -95,7 +95,7 @@ if __name__ == '__main__':
             w_diff = 0
             for k in w_glob.keys():
                 w_diff += torch.sum(torch.abs(w_glob[k] - w_locals[i][k]))
-            print("the difference between w_local ", i, " and w_glob: ", w_diff)
+            # print("the difference between w_local ", i, " and w_glob: ", w_diff)
 
         # update global weights
         w_old_glob=w_glob
